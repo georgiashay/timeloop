@@ -75,7 +75,7 @@ class BufferLevel : public Level
  public:
   
   // Memory technology (FIXME: separate latch arrays).
-  enum class Technology { SRAM, DRAM };
+  enum class Technology { SRAM, DRAM, Disk };
   friend std::ostream& operator<<(std::ostream& out, const Technology& tech);
 
   //

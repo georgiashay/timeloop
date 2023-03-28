@@ -72,10 +72,24 @@ double SRAMEnergy(std::uint64_t height, std::uint64_t width, std::uint64_t num_b
   return energy;
 }
 
-double DRAMEnergy(std::uint64_t width)
+double DRAMEnergy(std::uint64_t height, std::uint64_t width, std::uint64_t num_banks, std::uint64_t num_ports)
+{
+  (void) height;
+  (void) num_banks;
+  (void) num_ports;
+  double energy = (200.0 * width) / 16;
+  return energy;
+}
+
+double InfiniteDRAMEnergy(std::uint64_t width)
 {
   double energy = (200.0 * width) / 16;
   return energy;
+}
+
+double DiskEnergy(std::uint64_t width) {
+  (void) width;
+  return 0;
 }
 
 double WireEnergy(std::uint64_t bits, double length_mm)

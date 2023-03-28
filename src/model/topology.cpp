@@ -601,6 +601,7 @@ void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping) const {
     }
     uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
 
+    // Todo: does this part need changed for disk?
     // Assume the DRAM is the last level
     auto last_storage_level_id = NumStorageLevels() - 1;
     double op_per_byte = GetStorageLevel(last_storage_level_id)->OperationalIntensity(total_ops);

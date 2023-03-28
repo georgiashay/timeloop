@@ -82,7 +82,8 @@ static std::map <std::string, std::vector<std::string>> storageOperationMappings
      {"compression_count", {"compression_count"}}
   };
 
-static std::string bufferClasses[5] = { "DRAM",
+static std::string bufferClasses[6] = { "Disk",
+                                        "DRAM",
                                         "SRAM",
                                         "regfile",
                                         "smartbuffer",

@@ -35,7 +35,10 @@ namespace pat
 double SRAMEnergy(std::uint64_t height, std::uint64_t width, std::uint64_t num_banks, std::uint64_t num_ports);
 double SRAMArea(std::uint64_t height, std::uint64_t width, std::uint64_t num_banks, std::uint64_t num_ports);
 
-double DRAMEnergy(std::uint64_t width);
+double InfiniteDRAMEnergy(std::uint64_t width);
+double DRAMEnergy(std::uint64_t height, std::uint64_t width, std::uint64_t num_banks, std::uint64_t num_ports);
+
+double DiskEnergy(std::uint64_t width);
 
 double MultiplierEnergy(std::uint64_t bits_A, std::uint64_t bits_B);
 double MultiplierArea(std::uint64_t bits_A, std::uint64_t bits_B);

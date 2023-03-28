@@ -350,6 +350,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   // assume.
   std::string technology;
   specs.technology = Technology::SRAM;
+  if (className == "Disk") specs.technology = Technology::Disk;
   if (className == "DRAM") specs.technology = Technology::DRAM;
   if (className.find("DRAM") != std::string::npos) specs.technology = Technology::DRAM;
 
@@ -517,11 +518,31 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   double tmp_access_energy = 0;
   double tmp_storage_area = 0;
 
-  if (specs.technology.Get() == Technology::DRAM)
-  {
-    assert(specs.cluster_size.Get() == 1);
-    tmp_access_energy = pat::DRAMEnergy(specs.word_bits.Get() * specs.block_size.Get());
+  if (specs.technology.Get() == Technology::Disk) {
+    assert (specs.cluster_size.Get() == 1);
+    tmp_access_energy = pat::DiskEnergy(specs.word_bits.Get() * specs.block_size.Get());
     tmp_storage_area = 0;
+  }
+  else if (specs.technology.Get() == Technology::DRAM)
+  {
+    if (specs.size.IsSpecified()) {
+      // Width is specified
+      std::uint64_t tmp_entries = specs.size.Get();
+      std::uint64_t tmp_word_bits = specs.word_bits.Get();
+      std::uint64_t tmp_block_size = specs.block_size.Get();
+      std::uint64_t tmp_cluster_size = specs.cluster_size.Get();
+      std::uint64_t width = tmp_word_bits * tmp_block_size * tmp_cluster_size;
+      std::uint64_t height =
+        (tmp_entries % tmp_block_size == 0) ?
+        (tmp_entries / tmp_block_size)      :
+        (tmp_entries / tmp_block_size) + 1;  
+      tmp_access_energy = pat::DRAMEnergy(height, width, specs.num_banks.Get(), specs.num_ports.Get()) / tmp_cluster_size;
+      tmp_storage_area = 0;
+    } else {
+      // Assume infinite DRAM model
+      assert(specs.cluster_size.Get() == 1);
+      tmp_access_energy = pat::InfiniteDRAMEnergy(specs.word_bits.Get() * specs.block_size.Get());
+    }
   }
   else if (specs.size.Get() == 0)
   {
@@ -1788,6 +1809,7 @@ std::ostream& operator<<(std::ostream& out, const BufferLevel::Technology& tech)
   {
     case BufferLevel::Technology::SRAM: out << "SRAM"; break;
     case BufferLevel::Technology::DRAM: out << "DRAM"; break;
+    case BufferLevel::Technology::Disk: out << "Disk"; break;
   }
   return out;
 }
