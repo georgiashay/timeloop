@@ -555,6 +555,7 @@ bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) {
 /* CompoundConfig */
 
 CompoundConfig::CompoundConfig(const char* inputFile) {
+  inFiles = { inputFile };
   if (std::strstr(inputFile, ".cfg")) {
     LConfig.readFile(inputFile);
     auto& lroot = LConfig.getRoot();

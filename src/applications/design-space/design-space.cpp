@@ -140,11 +140,10 @@ void DesignSpaceExplorer::Run()
       config::CompoundConfig config("temp_dse.yaml");
 
       //std::cout << "arch yaml: \n" << curr_arch.yaml_ << std::endl;
-      Application* mapper = new Application(&config, file_name);
+      Application mapper(&config, file_name);
       //SimpleMapper mapper = SimpleMapper(config_name, arch, problem);
-      mapper->Run();
-      PointResult result(mapper->name_, mapper->GetGlobalBest());
-      mappers_.push_back(mapper);
+      mapper.Run();
+      PointResult result(mapper.name_, mapper.GetGlobalBest());
       designs_.push_back(result);
       std::cout << "*** total arch: " << aspec_space.GetSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
         

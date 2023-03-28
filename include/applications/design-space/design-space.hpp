@@ -67,7 +67,6 @@ class DesignSpaceExplorer
   std::string archspec_filename_;
 
   std::vector<PointResult> designs_;
-  std::vector<Application*> mappers_;
 
  public:
 

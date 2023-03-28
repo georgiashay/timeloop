@@ -48,6 +48,17 @@ class ArchSweepNode
   ArchSweepNode(std::string n, int min, int max, int step);
 };
 
+class SweepConstraint
+{
+  public:
+    SweepConstraint(std::string var1, std::string var2, std::string op);
+    bool IsValid(std::vector<ArchSweepNode> space);
+  private:
+    std::string var1;
+    std::string var2;
+    std::string op;
+};
+
 
 class ArchSpaceNode
 {

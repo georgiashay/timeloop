@@ -26,6 +26,7 @@
  */
 
 #include <iostream>
+#include <regex>
 
 #include "applications/design-space/arch.hpp"
 
@@ -136,6 +137,40 @@ ArchSweepNode::ArchSweepNode(std::string n, int min, int max, int step) :
 {
 }
 
+SweepConstraint::SweepConstraint(std::string var1, std::string var2, std::string op) :
+  var1(var1), var2(var2), op(op)
+{
+}
+
+bool SweepConstraint::IsValid(std::vector<ArchSweepNode> space)
+{
+  bool var1_found = false;
+  bool var2_found = false;
+  int val1;
+  int val2;
+  for (std::size_t i = 0; i < space.size(); i++) {
+    if (space[i].name_ == var1) {
+      val1 = space[i].val_curr_;
+      var1_found = true;
+    }
+    if (space[i].name_ == var2) {
+      val2 = space[i].val_curr_;
+      var2_found = true;
+    }
+  }
+  if (var1_found && var2_found) {
+    if (op == "=") return val1 == val2;
+    if (op == ">=") return val1 >= val2;
+    if (op == ">") return val1 > val2;
+    if (op == "<=") return val1 <= val2;
+    if (op == "<") return val1 < val2;
+    std::cout << "Op not supported" << std::endl;
+    assert(0);
+  } else {
+    std::cout << "Constraints must only pertain to sweeping variables" << std::endl;
+    assert(0);
+  }
+}
 
 ArchSpaceNode::ArchSpaceNode()
 {
@@ -211,11 +246,32 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     space.push_back(ArchSweepNode(name, min, max, step));
   }
 
+  std::vector<SweepConstraint> sweep_constraints;
+
+  auto constr_list = sweep_yaml["constraints"];
+  for (std::size_t i = 0; i < constr_list.size(); i++) {
+
+    std::string constraint = constr_list[i].as<std::string>();
+
+    std::regex re("^([^><=]*[^><=\\s]+)\\s*(>|>=|<|<=|=)\\s*([^><=]+)$");
+    std::smatch match;
+
+    if (std::regex_match(constraint, match, re)) {
+      std::string var1 = match[1];
+      std::string var2 = match[3];
+      std::string op = match[2];
+      std::cout << "Found constraint: var1 = " << var1 << ", var2 = " << var2 << ", op = " << op << std::endl;
+      sweep_constraints.push_back(SweepConstraint(var1, var2, op));
+    } else {
+      std::cout << "Constraint not recognized: " << constraint << std::endl;
+      assert(0);
+    }
+  }
+
   //iterate through the space
   bool done = false;
   while(!done)
   {
-
     std::cout << "Generating Architecture" << std::endl;
 
     //load base yaml, then modify using the sweep nodes
@@ -277,31 +333,48 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     ArchSpaceNode new_arch = ArchSpaceNode(base_yaml_filename + config_append, yaml);
     architectures_.push_back(new_arch);
 
-    std::cout << "Increment to next architecture spec." << std::endl;
+    bool made_one_valid = false;
+    while (!made_one_valid) {
+      std::cout << "Increment to next architecture spec." << std::endl;
 
-    //increment (step through) the sweep space
-    unsigned int i = 0;
-    while (i < space.size())
-    {
-      space[i].val_curr_ *= space[i].val_step_size_;
-      
-      //if we ov
-      if (space[i].val_curr_ > space[i].val_max_)
+      //increment (step through) the sweep space
+      unsigned int i = 0;
+      while (i < space.size())
       {
-        //check if we reached the end, we are finished generating
-        if ((i + 1) >= space.size())
+        space[i].val_curr_ *= space[i].val_step_size_;
+        
+        //if we ov
+        if (space[i].val_curr_ > space[i].val_max_)
         {
-          done = true;
+          //check if we reached the end, we are finished generating
+          if ((i + 1) >= space.size())
+          {
+            done = true;
+          }
+          //reset and carry to increment the next "digit" of the sweep
+          else {
+            space[i].val_curr_ = space[i].val_min_; //reset
+            i++; //move to next
+          }
         }
-        //reset and carry to increment the next "digit" of the sweep
-        else {
-          space[i].val_curr_ = space[i].val_min_; //reset
-          i++; //move to next
+        else { //we dont need to carry, we are done.
+          break; 
         }
       }
-      else { //we dont need to carry, we are done.
-        break; 
+
+      if (done) {
+        made_one_valid = true;
+      } else {
+        bool constraints_passed = true;
+        for (std::size_t j = 0; j < sweep_constraints.size(); j++) {
+          if (!sweep_constraints[j].IsValid(space)) {
+            constraints_passed = false;
+            break;
+          }
+        }
+        made_one_valid = constraints_passed;
       }
+     
     }
 
   }
