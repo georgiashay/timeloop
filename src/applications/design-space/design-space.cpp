@@ -168,5 +168,6 @@ void DesignSpaceExplorer::Run()
         
     }
   }
+  free(aspec_space);
   result_txt_file.close();
 }
