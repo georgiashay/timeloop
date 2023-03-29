@@ -298,6 +298,10 @@ void Topology::Specs::AddNetwork(std::shared_ptr<NetworkSpecs> specs)
   networks.push_back(specs);
 }
 
+void Topology::Specs::SetArea(double area) {
+  this->area = area;
+}
+
 unsigned Topology::Specs::NumLevels() const
 {
   return levels.size();
@@ -338,6 +342,10 @@ std::shared_ptr<LegacyNetwork::Specs> Topology::Specs::GetInferredNetwork(unsign
 std::shared_ptr<NetworkSpecs> Topology::Specs::GetNetwork(unsigned network_id) const
 {
   return networks.at(network_id);
+}
+
+double Topology::Specs::GetArea() const {
+  return area;
 }
 
 //--------------------------------------------//
@@ -487,7 +495,7 @@ out << std::endl
     out << "EDP(J*cycle): " << std::scientific << float(topology.stats_.cycles) * topology.stats_.energy / 1e12 << OUT_FLOAT_FORMAT << std::endl;
 
   }
-  out << "Area: " << topology.stats_.area / 1000000 << " mm^2" << std::endl;
+  out << "Area: " << topology.specs_.GetArea() / 1000000 << " mm^2" << std::endl;
 
 
   if (topology.is_evaluated_)
@@ -894,7 +902,7 @@ void Topology::Spec(const Topology::Specs& specs)
     assert(level->Area() >= 0);
     area += level->Area();
   }
-  stats_.area = area;
+  specs_.SetArea(area);
   
   total_network_latency_ = total_network_latency;
 

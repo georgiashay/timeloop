@@ -39,6 +39,7 @@
 #include "compound-config/compound-config.hpp"
 #include "applications/mapper/mapper-thread.hpp"
 #include "model/sparse-optimization-parser.hpp"
+#include "model/topology.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -102,6 +103,7 @@ class Application
   ~Application();
 
   EvaluationResult GetGlobalBest();
+  model::Engine::Specs GetArchSpecs();
 
   void Run();
 };

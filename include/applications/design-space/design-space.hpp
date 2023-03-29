@@ -39,6 +39,7 @@
 #include "applications/design-space/problem.hpp"
 #include "applications/design-space/arch.hpp"
 #include "applications/mapper/mapper.hpp"
+#include "model/topology.hpp"
 
 using namespace config;
 
@@ -47,8 +48,11 @@ struct PointResult
   std::string config_name_;
   //Mapping best_mapping_; can't be used due to bug
   EvaluationResult result_;
+  model::Topology::Specs specs_;
+  ArchSpaceNode arch_;
+  std::string extra_headers_;
   
-  PointResult(std::string name, EvaluationResult result);
+  PointResult(std::string name, EvaluationResult result, model::Topology::Specs specs, ArchSpaceNode arch, std::string extra_headers);
   
   void PrintEvaluationResultsHeader(std::ostream& out);
   void PrintEvaluationResult(std::ostream& out);

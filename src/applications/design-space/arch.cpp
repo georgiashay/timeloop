@@ -132,7 +132,7 @@ ArchSweepNode::ArchSweepNode()
 {
 }  
 
-ArchSweepNode::ArchSweepNode(std::string n, int min, int max, int step) :
+ArchSweepNode::ArchSweepNode(std::string n, std::uint64_t min, std::uint64_t max, std::uint64_t step) :
     name_(n), val_curr_(min), val_min_(min), val_max_(max), val_step_size_(step)
 {
 }
@@ -146,8 +146,8 @@ bool SweepConstraint::IsValid(std::vector<ArchSweepNode> space)
 {
   bool var1_found = false;
   bool var2_found = false;
-  int val1;
-  int val2;
+  std::uint64_t val1;
+  std::uint64_t val2;
   for (std::size_t i = 0; i < space.size(); i++) {
     if (space[i].name_ == var1) {
       val1 = space[i].val_curr_;
@@ -176,8 +176,8 @@ ArchSpaceNode::ArchSpaceNode()
 {
 }  
 
-ArchSpaceNode::ArchSpaceNode(std::string n, YAML::Node a) :
-    name_(n), yaml_(a)
+ArchSpaceNode::ArchSpaceNode(std::string n, YAML::Node a, std::string h) :
+    name_(n), yaml_(a), header_(h)
 {
 }
 
@@ -198,7 +198,9 @@ void ArchSpace::InitializeFromFile(std::string filename)
   fin.open(filename);
   YAML::Node filecontents = YAML::Load(fin);
 
-  ArchSpaceNode new_arch = ArchSpaceNode(filename, filecontents);
+  headers_ = "";
+
+  ArchSpaceNode new_arch = ArchSpaceNode(filename, filecontents, "");
   architectures_.push_back(new_arch);
 }
 
@@ -207,6 +209,7 @@ void ArchSpace::InitializeFromFileList(YAML::Node list_yaml)
 {  
   std::cout << "Initializing Architectures from list "  << std::endl;
 
+  headers_ = "Filename, ";
   //traverse list, create new nodes and push_back
   for (std::size_t i = 0; i < list_yaml.size(); i++)
   {
@@ -217,7 +220,7 @@ void ArchSpace::InitializeFromFileList(YAML::Node list_yaml)
     YAML::Node filecontents = YAML::Load(fin);
     std::cout << "  Using arch file: " << filename  << std::endl;
 
-    ArchSpaceNode new_arch = ArchSpaceNode(filename, filecontents);
+    ArchSpaceNode new_arch = ArchSpaceNode(filename, filecontents, filename);
     architectures_.push_back(new_arch);
   }
 }
@@ -231,6 +234,7 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
   // - initialize the space vector
   std::vector<ArchSweepNode> space;
 
+  headers_ = "";
   auto list = sweep_yaml["elements"];
   //traverse file, build up the sweep nodes
   for (std::size_t i = 0; i < list.size(); i++)
@@ -240,6 +244,8 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     int min = list[i]["min"].as<int>();
     int max = list[i]["max"].as<int>();
     int step = list[i]["step-size"].as<int>();
+
+    headers_ += name + ", ";
 
     std::cout << "    Adding variable " << name << "  min: "  << min << "  max: " << max << "  stepsize: " << step << std::endl;
 
@@ -281,9 +287,11 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     //std::cout << "YAML (before) " << yaml << std::endl;
       
     std::string config_append; //the specific arch details of the arch instance
+    std::string header = "";
     for (std::size_t i = 0; i < space.size(); i++){
-      int val = space[i].val_curr_;
-      config_append += "." + space[i].name_ + "." + std::to_string(val); 
+      std::uint64_t val = space[i].val_curr_;
+      config_append += "." + space[i].name_ + "." + std::to_string(val);
+      header += std::to_string(val) + ", "; 
 
       std::vector<std::string> yaml_path = split(space[i].name_, '.');
 
@@ -330,13 +338,16 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     }
     //std::cout << "YAML (after) " << yaml << std::endl;
 
-    ArchSpaceNode new_arch = ArchSpaceNode(base_yaml_filename + config_append, yaml);
+    ArchSpaceNode new_arch = ArchSpaceNode(base_yaml_filename + config_append, yaml, header);
     architectures_.push_back(new_arch);
 
     bool made_one_valid = false;
     while (!made_one_valid) {
       std::cout << "Increment to next architecture spec." << std::endl;
-
+      for (std::size_t i = 0; i < space.size(); i++) {
+        std::cout << space[i].name_ << ": " << space[i].val_curr_ << ", ";
+      }
+      std::cout << std::endl;
       //increment (step through) the sweep space
       unsigned int i = 0;
       while (i < space.size())
@@ -380,6 +391,11 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
   }
 
   std::cout << "Generated " << architectures_.size() << " architecture configs" << std::endl;
+}
+
+std::string ArchSpace::GetExtraHeaders()
+{
+  return headers_;
 }
   
 

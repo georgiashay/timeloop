@@ -32,21 +32,24 @@
 
 using namespace config;
 
-PointResult::PointResult(std::string name, EvaluationResult result) :
-    config_name_(name), result_(result)
+PointResult::PointResult(std::string name, EvaluationResult result, model::Topology::Specs specs, ArchSpaceNode arch, std::string extra_headers) :
+    config_name_(name), result_(result), specs_(specs), arch_(arch), extra_headers_(extra_headers)
 {
 }
   
 void PointResult::PrintEvaluationResultsHeader(std::ostream& out)
 {
   out << "Summary stats for best mapping found by mapper:" << std::endl; 
-  out << "config_name, Total Computes, utilization, pJ/Compute" << std::endl;
+  out << extra_headers_;
+  out << "Total Computes, Cycles, Area, utilization, pJ/Compute" << std::endl;
 }
 
 void PointResult::PrintEvaluationResult(std::ostream& out)
 {
-  out << config_name_ ; 
-  out << ", " << result_.stats.algorithmic_computes;
+  out << arch_.header_;
+  out << result_.stats.algorithmic_computes;
+  out << ", " << result_.stats.cycles;
+  out << ", " << specs_.GetArea();
   out << ", " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << result_.stats.utilization;
   out << ", " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << result_.stats.energy / result_.stats.algorithmic_computes << std::endl;
 }
@@ -143,7 +146,10 @@ void DesignSpaceExplorer::Run()
       Application mapper(&config, file_name);
       //SimpleMapper mapper = SimpleMapper(config_name, arch, problem);
       mapper.Run();
-      PointResult result(mapper.name_, mapper.GetGlobalBest());
+      model::Engine::Specs arch_specs = mapper.GetArchSpecs();
+      model::Engine engine;
+      engine.Spec(arch_specs);
+      PointResult result(config_name, mapper.GetGlobalBest(), engine.GetTopology().GetSpecs(), curr_arch, aspec_space.GetExtraHeaders());
       designs_.push_back(result);
       std::cout << "*** total arch: " << aspec_space.GetSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
         

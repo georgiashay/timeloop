@@ -120,6 +120,7 @@ class Topology : public Module
     std::vector<std::shared_ptr<NetworkSpecs>> networks;
     std::map<unsigned, unsigned> storage_map;
     unsigned arithmetic_map;
+    double area;
 
    public:
     // Constructors and assignment operators.
@@ -140,6 +141,7 @@ class Topology : public Module
 
       storage_map = other.storage_map;
       arithmetic_map = other.arithmetic_map;
+      area = other.area;
     }
 
     // Copy-and-swap idiom.
@@ -172,6 +174,7 @@ class Topology : public Module
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
     void AddInferredNetwork(std::shared_ptr<LegacyNetwork::Specs> specs);
     void AddNetwork(std::shared_ptr<NetworkSpecs> specs);
+    void SetArea(double area);
 
     unsigned StorageMap(unsigned i) const { return storage_map.at(i); }
     unsigned ArithmeticMap() const { return arithmetic_map; }
@@ -181,6 +184,7 @@ class Topology : public Module
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
     std::shared_ptr<LegacyNetwork::Specs> GetInferredNetwork(unsigned network_id) const;
     std::shared_ptr<NetworkSpecs> GetNetwork(unsigned network_id) const;
+    double GetArea() const;
   };
 
   //
@@ -189,7 +193,6 @@ class Topology : public Module
   struct Stats
   {
     double energy;
-    double area;
     std::uint64_t cycles;
     double utilization;
     std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
@@ -208,7 +211,6 @@ class Topology : public Module
     void Reset()
     {
       energy = 0;
-      area = 0;
       cycles = 0;
       utilization = 0;
       tile_sizes.clear();
@@ -332,7 +334,7 @@ class Topology : public Module
   // FIXME: these stat-specific accessors are deprecated and only exist for
   // backwards-compatibility with some applications.
   double Energy() const { return stats_.energy; }
-  double Area() const { return stats_.area; }
+  double Area() const { return specs_.GetArea(); }
   std::uint64_t Cycles() const { return stats_.cycles; }
   double Utilization() const { return stats_.utilization; }
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const { return stats_.tile_sizes; }

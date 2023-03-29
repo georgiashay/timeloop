@@ -39,13 +39,13 @@ class ArchSweepNode
 {
  public:
   std::string name_;
-  int val_curr_;   
-  int val_min_;
-  int val_max_;
-  int val_step_size_;
+  std::uint64_t val_curr_;   
+  std::uint64_t val_min_;
+  std::uint64_t val_max_;
+  std::uint64_t val_step_size_;
 
   ArchSweepNode();
-  ArchSweepNode(std::string n, int min, int max, int step);
+  ArchSweepNode(std::string n, std::uint64_t min, std::uint64_t max, std::uint64_t step);
 };
 
 class SweepConstraint
@@ -65,9 +65,10 @@ class ArchSpaceNode
  public:
   std::string name_; //descriptive name
   YAML::Node yaml_; //text version of YAML/ should be YAML
+  std::string header_;
 
   ArchSpaceNode();
-  ArchSpaceNode(std::string n, YAML::Node a);
+  ArchSpaceNode(std::string n, YAML::Node a, std::string h);
 };
 
 
@@ -75,6 +76,7 @@ class ArchSpace
 {
  protected:
   std::string name_;
+  std::string headers_;
   std::vector<ArchSpaceNode> architectures_;
 
  public:
@@ -84,6 +86,8 @@ class ArchSpace
   void InitializeFromFile(std::string filename);
   void InitializeFromFileList(YAML::Node list_yaml);
   void InitializeFromFileSweep(YAML::Node sweep_yaml);
+
+  std::string GetExtraHeaders();
 
   int GetSize();
 

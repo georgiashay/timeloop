@@ -305,6 +305,12 @@ EvaluationResult Application::GetGlobalBest()
   return global_best_;
 }
 
+model::Engine::Specs Application::GetArchSpecs()
+{
+  return arch_specs_;
+}
+
+
 // ---------------
 // Run the mapper.
 // ---------------
