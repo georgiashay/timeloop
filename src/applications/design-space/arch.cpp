@@ -192,40 +192,29 @@ ArchSpace::ArchSpace(std::string n) :
 }
 
   
-void ArchSpace::InitializeFromFile(std::string filename)
-{    
-  std::ifstream fin;
-  fin.open(filename);
-  YAML::Node filecontents = YAML::Load(fin);
-
-  headers_ = "";
-
-  ArchSpaceNode new_arch = ArchSpaceNode(filename, filecontents, "");
-  architectures_.push_back(new_arch);
+ArchSpace* ArchSpace::InitializeFromFile(std::string filename)
+{  
+  return new FileArchSpace(filename);
 }
 
 
-void ArchSpace::InitializeFromFileList(YAML::Node list_yaml)
+ArchSpace* ArchSpace::InitializeFromFileList(YAML::Node list_yaml)
 {  
   std::cout << "Initializing Architectures from list "  << std::endl;
 
-  headers_ = "Filename, ";
-  //traverse list, create new nodes and push_back
+  std::vector<std::string> filenames;
+
   for (std::size_t i = 0; i < list_yaml.size(); i++)
   {
     std::string filename = list_yaml[i].as<std::string>();
+    filenames.push_back(filename);
 
-    std::ifstream fin;
-    fin.open(filename);
-    YAML::Node filecontents = YAML::Load(fin);
     std::cout << "  Using arch file: " << filename  << std::endl;
-
-    ArchSpaceNode new_arch = ArchSpaceNode(filename, filecontents, filename);
-    architectures_.push_back(new_arch);
   }
+  return new FileListArchSpace(filenames);
 }
 
-void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
+ArchSpace* ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
 {
   std::cout << "  Reading arch sweep parameters"  << std::endl;
   std::string base_yaml_filename = sweep_yaml["arch-spec"].as<std::string>();
@@ -234,7 +223,6 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
   // - initialize the space vector
   std::vector<ArchSweepNode> space;
 
-  headers_ = "";
   auto list = sweep_yaml["elements"];
   //traverse file, build up the sweep nodes
   for (std::size_t i = 0; i < list.size(); i++)
@@ -244,8 +232,6 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     int min = list[i]["min"].as<int>();
     int max = list[i]["max"].as<int>();
     int step = list[i]["step-size"].as<int>();
-
-    headers_ += name + ", ";
 
     std::cout << "    Adding variable " << name << "  min: "  << min << "  max: " << max << "  stepsize: " << step << std::endl;
 
@@ -274,26 +260,136 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     }
   }
 
-  //iterate through the space
-  bool done = false;
-  while(!done)
-  {
+  return new SweepArchSpace(base_yaml_filename, space, sweep_constraints);
+}
+
+
+FileArchSpace::FileArchSpace(std::string filename) :
+  filename_(filename), done_(false)
+{
+
+}
+
+std::string FileArchSpace::GetExtraHeaders() {
+  return "";
+}
+
+bool FileArchSpace::HasNext() {
+  return !done_;
+}
+
+ArchSpaceNode FileArchSpace::GetNext() 
+{
+  if (done_) {
+    return ArchSpaceNode("", YAML::Node(), "");
+  } else {
+    std::ifstream fin;
+    fin.open(filename_);
+    YAML::Node filecontents = YAML::Load(fin);
+
+    ArchSpaceNode new_arch = ArchSpaceNode(filename_, filecontents, "");
+    return new_arch;
+  }
+}
+
+std::uint64_t FileArchSpace::GetMaxSize() {
+  return 1;
+}
+
+std::uint64_t FileArchSpace::GetIndex() {
+  return 0;
+}
+
+FileListArchSpace::FileListArchSpace(std::vector<std::string> filenames) :
+  filenames_(filenames), i(0)
+{
+
+}
+
+std::string FileListArchSpace::GetExtraHeaders()
+{
+  return "Filename, ";
+}
+
+bool FileListArchSpace::HasNext() 
+{
+  return i < filenames_.size();  
+}
+
+ArchSpaceNode FileListArchSpace::GetNext()
+{
+  if (!HasNext()) {
+    return ArchSpaceNode("", YAML::Node(), "");
+  } else {
+    std::ifstream fin;
+    fin.open(filenames_[i]);
+    YAML::Node filecontents = YAML::Load(fin);
+
+    ArchSpaceNode new_arch = ArchSpaceNode(filenames_[i], filecontents, "");
+    i++;
+    return new_arch;
+  }
+}
+
+std::uint64_t FileListArchSpace::GetMaxSize() 
+{
+  return filenames_.size();
+}
+
+std::uint64_t FileListArchSpace::GetIndex()
+{
+  return i;
+}
+
+SweepArchSpace::SweepArchSpace(std::string base_yaml_filename, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints) :
+  base_yaml_filename_(base_yaml_filename), space_(space), constraints_(constraints), done_(false), index_(0)
+{
+  headers_ = "";
+  for (std::size_t i = 0; i < space.size(); i++) {
+    headers_ += space[i].name_ + ", ";
+  }
+
+  max_size_ = 1;
+  for (std::size_t i = 0; i < space.size(); i++) {
+    std::uint64_t this_var_size = 0;
+    for (std::uint64_t v = space[i].val_min_; v <= space[i].val_max_; v *= space[i].val_step_size_) {
+      this_var_size++;
+    }
+    max_size_ *= this_var_size;
+  }
+
+  while (!PassesConstraints() && !done_) {
+    AdvanceSweepNodes();
+  }
+}
+
+std::string SweepArchSpace::GetExtraHeaders() {
+  return headers_;
+}
+
+bool SweepArchSpace::HasNext() {
+  return !done_;
+}
+
+ArchSpaceNode SweepArchSpace::GetNext() {
+  if (!HasNext()) {
+    return ArchSpaceNode("", YAML::Node(), "");
+  } else {
     std::cout << "Generating Architecture" << std::endl;
 
     //load base yaml, then modify using the sweep nodes
     std::ifstream fin;
-    fin.open(base_yaml_filename);
+    fin.open(base_yaml_filename_);
     YAML::Node yaml = YAML::Load(fin);
-    //std::cout << "YAML (before) " << yaml << std::endl;
       
     std::string config_append; //the specific arch details of the arch instance
     std::string header = "";
-    for (std::size_t i = 0; i < space.size(); i++){
-      std::uint64_t val = space[i].val_curr_;
-      config_append += "." + space[i].name_ + "." + std::to_string(val);
+    for (std::size_t i = 0; i < space_.size(); i++){
+      std::uint64_t val = space_[i].val_curr_;
+      config_append += "." + space_[i].name_ + "." + std::to_string(val);
       header += std::to_string(val) + ", "; 
 
-      std::vector<std::string> yaml_path = split(space[i].name_, '.');
+      std::vector<std::string> yaml_path = split(space_[i].name_, '.');
 
       std::cout << "Searching for module: " << yaml_path[0] << std::endl;        
       auto active = YAMLRecursiveSearch(yaml["architecture"], yaml_path[0], "");
@@ -305,106 +401,71 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
       else {
         assert(0);
       }
-        
-      /*
-        std::cout << "    Using variable " << space[i].name_ << "  currval: "  << val << std::endl;
-
-        //traverse the yaml to find the value, then update it
-        //the yaml string path can contain numbers (index into list/set), which need to be converted
-        std::vector<YAML::Node> nodes; //all the nodes we have to traverse to modify child value
-        nodes.push_back(yaml);
-        for (std::size_t i = 0; i < yaml_path.size(); i++){
-
-        //atempt to convert to number
-        char* end;
-        long index = strtol(yaml_path[i].c_str(), &end, 10); 
-        // conversion failed because the input wasn't a number
-        // using string version
-        if (*end) {
-        //std::cout << "        Tracing (" << i << ") as key: " << yaml_path[i].c_str() << std::endl;
-        nodes.push_back((nodes[i])[yaml_path[i]]);
-        }
-        else { // use number index
-        //std::cout << "        Tracing (" << i << ") as index: " << index << std::endl;
-        nodes.push_back((nodes[i])[index]);
-        }
-
-          
-        }
-        //finished finding the node, update it
-        nodes[yaml_path.size()] = val;
-      */
-
-    }
-    //std::cout << "YAML (after) " << yaml << std::endl;
-
-    ArchSpaceNode new_arch = ArchSpaceNode(base_yaml_filename + config_append, yaml, header);
-    architectures_.push_back(new_arch);
-
-    bool made_one_valid = false;
-    while (!made_one_valid) {
-      std::cout << "Increment to next architecture spec." << std::endl;
-      for (std::size_t i = 0; i < space.size(); i++) {
-        std::cout << space[i].name_ << ": " << space[i].val_curr_ << ", ";
-      }
-      std::cout << std::endl;
-      //increment (step through) the sweep space
-      unsigned int i = 0;
-      while (i < space.size())
-      {
-        space[i].val_curr_ *= space[i].val_step_size_;
-        
-        //if we ov
-        if (space[i].val_curr_ > space[i].val_max_)
-        {
-          //check if we reached the end, we are finished generating
-          if ((i + 1) >= space.size())
-          {
-            done = true;
-          }
-          //reset and carry to increment the next "digit" of the sweep
-          else {
-            space[i].val_curr_ = space[i].val_min_; //reset
-            i++; //move to next
-          }
-        }
-        else { //we dont need to carry, we are done.
-          break; 
-        }
-      }
-
-      if (done) {
-        made_one_valid = true;
-      } else {
-        bool constraints_passed = true;
-        for (std::size_t j = 0; j < sweep_constraints.size(); j++) {
-          if (!sweep_constraints[j].IsValid(space)) {
-            constraints_passed = false;
-            break;
-          }
-        }
-        made_one_valid = constraints_passed;
-      }
-     
     }
 
+    ArchSpaceNode new_arch = ArchSpaceNode(base_yaml_filename_ + config_append, yaml, header);
+    PrepareNext();
+    return new_arch;
   }
-
-  std::cout << "Generated " << architectures_.size() << " architecture configs" << std::endl;
 }
 
-std::string ArchSpace::GetExtraHeaders()
+std::uint64_t SweepArchSpace::GetMaxSize() 
 {
-  return headers_;
+  return max_size_;
 }
-  
 
-int ArchSpace::GetSize()
+std::uint64_t SweepArchSpace::GetIndex()
 {
-  return architectures_.size();
-} 
+  return index_;
+}
 
-ArchSpaceNode& ArchSpace::GetNode(int index)
+void SweepArchSpace::PrepareNext() 
 {
-  return architectures_[index];
+  AdvanceSweepNodes();
+  while (!PassesConstraints() && !done_) {
+    AdvanceSweepNodes();
+  }
+}
+
+
+
+void SweepArchSpace::AdvanceSweepNodes() {
+  for (std::size_t i = 0; i < space_.size(); i++) {
+    std::cout << space_[i].name_ << ": " << space_[i].val_curr_ << ", ";
+  }
+  std::cout << std::endl;
+  //increment (step through) the sweep space
+  std::size_t i = 0;
+  while (i < space_.size())
+  {
+    space_[i].val_curr_ *= space_[i].val_step_size_;
+    
+    //if we ov
+    if (space_[i].val_curr_ > space_[i].val_max_)
+    {
+      //check if we reached the end, we are finished generating
+      if ((i + 1) >= space_.size())
+      {
+        done_ = true;
+      }
+      //reset and carry to increment the next "digit" of the sweep
+      else {
+        space_[i].val_curr_ = space_[i].val_min_; //reset
+        i++; //move to next
+      }
+    }
+    else { //we dont need to carry, we are done.
+      break; 
+    }
+  }
+  index_++;
+}
+
+bool SweepArchSpace::PassesConstraints() {
+  for (std::size_t j = 0; j < constraints_.size(); j++) {
+    if (!constraints_[j].IsValid(space_)) {
+      return false;
+    }
+  }
+  return true;
 }

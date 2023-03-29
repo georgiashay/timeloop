@@ -41,7 +41,16 @@ int main(int argc, char* argv[])
   archspec_filename = std::string(argv[1]);
   problemspec_filename = std::string(argv[2]);
 
-  DesignSpaceExplorer application(problemspec_filename, archspec_filename);  
+  bool keep_files = true;
+
+  if (argc >= 4 ) {
+    std::string keep_flag = std::string(argv[3]);
+    if (keep_flag == "--no-keep") {
+      keep_files = false;
+    }
+  }
+
+  DesignSpaceExplorer application(problemspec_filename, archspec_filename, keep_files);  
   application.Run();
 
   return 0;

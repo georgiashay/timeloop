@@ -27,21 +27,21 @@
 
 #include <iomanip>
 #include <algorithm>
+#include <filesystem>
 
 #include "applications/design-space/design-space.hpp"
 
 using namespace config;
 
-PointResult::PointResult(std::string name, EvaluationResult result, model::Topology::Specs specs, ArchSpaceNode arch, std::string extra_headers) :
-    config_name_(name), result_(result), specs_(specs), arch_(arch), extra_headers_(extra_headers)
+PointResult::PointResult(std::string name, EvaluationResult result, model::Topology::Specs specs, ArchSpaceNode arch) :
+    config_name_(name), result_(result), specs_(specs), arch_(arch)
 {
 }
   
-void PointResult::PrintEvaluationResultsHeader(std::ostream& out)
+void PointResult::PrintEvaluationResultsHeader(ArchSpace* aspace, std::ostream& out)
 {
-  out << "Summary stats for best mapping found by mapper:" << std::endl; 
-  out << extra_headers_;
-  out << "Total Computes, Cycles, Area, utilization, pJ/Compute" << std::endl;
+  out << aspace->GetExtraHeaders();
+  out << "Total Computes, Cycles, Area, utilization, pJ/Compute, Mapping" << std::endl;
 }
 
 void PointResult::PrintEvaluationResult(std::ostream& out)
@@ -50,18 +50,20 @@ void PointResult::PrintEvaluationResult(std::ostream& out)
   out << result_.stats.algorithmic_computes;
   out << ", " << result_.stats.cycles;
   out << ", " << specs_.GetArea();
-  out << ", " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << result_.stats.utilization;
-  out << ", " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << result_.stats.energy / result_.stats.algorithmic_computes << std::endl;
+  out << ", " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(4) << result_.stats.utilization;
+  out << ", " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << result_.stats.energy / result_.stats.algorithmic_computes;
+  out << ", " << result_.mapping.PrintCompact() << std::endl;
 }
 
 //--------------------------------------------//
 //                Application                 //
 //--------------------------------------------//
 
-DesignSpaceExplorer::DesignSpaceExplorer(std::string problemfile, std::string archfile)
+DesignSpaceExplorer::DesignSpaceExplorer(std::string problemfile, std::string archfile, bool keep_files)
 {
   problemspec_filename_ = problemfile;
   archspec_filename_ = archfile;
+  keep_files_ = keep_files;
 }
 
 // ---------------
@@ -95,30 +97,37 @@ void DesignSpaceExplorer::Run()
   YAML::Node aspec_yaml = YAML::Load(aspec_stream);
 
   std::cout << "****** INITIALIZING ARCH SPACE ******" << std::endl;
-  ArchSpace aspec_space;
+  ArchSpace* aspec_space;
   if (auto list = aspec_yaml["arch-space-files"])
   {
-    aspec_space.InitializeFromFileList(list);
+    aspec_space = ArchSpace::InitializeFromFileList(list);
   }
   else if (auto sweep = aspec_yaml["arch-space-sweep"])
   {
-    aspec_space.InitializeFromFileSweep(sweep);
+    aspec_space = ArchSpace::InitializeFromFileSweep(sweep);
   }
   else
   {
-    aspec_space.InitializeFromFile(archspec_filename_);      
+    aspec_space = ArchSpace::InitializeFromFile(archspec_filename_);      
   }
     
-  std::cout << "*** total arch: " << aspec_space.GetSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
+  std::cout << "*** total arch: " << aspec_space->GetMaxSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
 
-  std::cout << "****** SOLVING ******" << std::endl;        
+  std::cout << "****** SOLVING ******" << std::endl;     
+
+  std::string result_filename =  "overview_" + archspec_filename_ + problemspec_filename_ + ".txt";
+  replace(result_filename.begin(),result_filename.end(),'/', '.'); 
+  std::ofstream result_txt_file("results/" + result_filename);
+
+  PointResult::PrintEvaluationResultsHeader(aspec_space, result_txt_file);
+
   //main loop, do the full product of problems x arches
-  for (int arch_id = 0; arch_id < aspec_space.GetSize(); arch_id ++)
+  while(aspec_space->HasNext())
   {
     //retrieved via reference
-    ArchSpaceNode curr_arch = aspec_space.GetNode(arch_id);
+    ArchSpaceNode curr_arch = aspec_space->GetNext();
 
-    std::cout << "*** working on arch : " << curr_arch.name_ << "  " << arch_id << std::endl;        
+    std::cout << "*** working on arch : " << curr_arch.name_ << "  " << aspec_space->GetIndex() << " / " << aspec_space->GetMaxSize() << std::endl;        
 
     for (int problem_id = 0; problem_id < pspec_space.GetSize(); problem_id ++)
     {
@@ -146,24 +155,18 @@ void DesignSpaceExplorer::Run()
       Application mapper(&config, file_name);
       //SimpleMapper mapper = SimpleMapper(config_name, arch, problem);
       mapper.Run();
+
       model::Engine::Specs arch_specs = mapper.GetArchSpecs();
       model::Engine engine;
       engine.Spec(arch_specs);
-      PointResult result(config_name, mapper.GetGlobalBest(), engine.GetTopology().GetSpecs(), curr_arch, aspec_space.GetExtraHeaders());
-      designs_.push_back(result);
-      std::cout << "*** total arch: " << aspec_space.GetSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
+      PointResult result(config_name, mapper.GetGlobalBest(), engine.GetTopology().GetSpecs(), curr_arch);
+      result.PrintEvaluationResult(result_txt_file);
+      if (!keep_files_) {
+        std::filesystem::remove_all(file_name);
+      }
+      std::cout << "*** total arch: " << aspec_space->GetMaxSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
         
     }
-  }
-
-  std::string result_filename =  "overview_" + archspec_filename_ + problemspec_filename_ + ".txt";
-  replace(result_filename.begin(),result_filename.end(),'/', '.'); 
-  std::ofstream result_txt_file("results/" + result_filename);
-  //print final results
-  designs_[0].PrintEvaluationResultsHeader(result_txt_file);
-  for (size_t i = 0; i < designs_.size(); i++)
-  {
-    designs_[i].PrintEvaluationResult(result_txt_file);
   }
   result_txt_file.close();
 }

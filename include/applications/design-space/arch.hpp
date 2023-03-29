@@ -76,22 +76,73 @@ class ArchSpace
 {
  protected:
   std::string name_;
-  std::string headers_;
-  std::vector<ArchSpaceNode> architectures_;
 
  public:
   ArchSpace();
   ArchSpace(std::string n);
 
-  void InitializeFromFile(std::string filename);
-  void InitializeFromFileList(YAML::Node list_yaml);
-  void InitializeFromFileSweep(YAML::Node sweep_yaml);
+  static ArchSpace* InitializeFromFile(std::string filename);
+  static ArchSpace* InitializeFromFileList(YAML::Node list_yaml);
+  static ArchSpace* InitializeFromFileSweep(YAML::Node sweep_yaml);
 
-  std::string GetExtraHeaders();
-
-  int GetSize();
-
-  ArchSpaceNode& GetNode(int index);
+  virtual std::string GetExtraHeaders() = 0;
+  virtual bool HasNext() = 0;
+  virtual ArchSpaceNode GetNext() = 0;
+  virtual std::uint64_t GetMaxSize() = 0;
+  virtual std::uint64_t GetIndex() = 0;
 };
 
+class SweepArchSpace : public ArchSpace
+{
+  private:
+    std::string base_yaml_filename_;
+    std::vector<ArchSweepNode> space_;
+    std::vector<SweepConstraint> constraints_;
+    std::string headers_;
+    bool done_;
+    std::uint64_t max_size_;
+    std::uint64_t index_;
 
+  public:
+    SweepArchSpace(std::string base_yaml_filename, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints);
+    std::string GetExtraHeaders();
+    bool HasNext();
+    ArchSpaceNode GetNext();
+    std::uint64_t GetMaxSize();
+    std::uint64_t GetIndex();
+
+  private:
+    void PrepareNext();
+    bool PassesConstraints();
+    void AdvanceSweepNodes();
+};
+
+class FileArchSpace : public ArchSpace
+{
+  private:
+    std::string filename_;
+    bool done_;
+
+  public:
+    FileArchSpace(std::string filename);
+    std::string GetExtraHeaders();
+    bool HasNext();
+    ArchSpaceNode GetNext();
+    std::uint64_t GetMaxSize();
+    std::uint64_t GetIndex();
+};
+
+class FileListArchSpace : public ArchSpace
+{
+  private:
+    std::vector<std::string> filenames_;
+    std::size_t i;
+  
+  public:
+    FileListArchSpace(std::vector<std::string> filenames);
+    std::string GetExtraHeaders();
+    bool HasNext();
+    ArchSpaceNode GetNext();
+    std::uint64_t GetMaxSize();
+    std::uint64_t GetIndex();
+};

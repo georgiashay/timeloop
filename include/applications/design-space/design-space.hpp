@@ -52,9 +52,9 @@ struct PointResult
   ArchSpaceNode arch_;
   std::string extra_headers_;
   
-  PointResult(std::string name, EvaluationResult result, model::Topology::Specs specs, ArchSpaceNode arch, std::string extra_headers);
+  PointResult(std::string name, EvaluationResult result, model::Topology::Specs specs, ArchSpaceNode arch);
   
-  void PrintEvaluationResultsHeader(std::ostream& out);
+  static void PrintEvaluationResultsHeader(ArchSpace* aspace, std::ostream& out);
   void PrintEvaluationResult(std::ostream& out);
 };
 
@@ -69,12 +69,11 @@ class DesignSpaceExplorer
   //want a list of files for each workload
   std::string problemspec_filename_;
   std::string archspec_filename_;
-
-  std::vector<PointResult> designs_;
+  bool keep_files_;
 
  public:
 
-  DesignSpaceExplorer(std::string problemfile, std::string archfile);
+  DesignSpaceExplorer(std::string problemfile, std::string archfile, bool keep_files=true);
 
   // ---------------------------------
   // Run the design space exploration.
