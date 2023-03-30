@@ -127,10 +127,11 @@ void DesignSpaceExplorer::Run()
   //main loop, do the full product of problems x arches
   while(aspec_space->HasNext())
   {
+    uint64_t index = aspec_space->GetIndex();
     //retrieved via reference
     ArchSpaceNode curr_arch = aspec_space->GetNext();
 
-    std::cout << "*** working on arch : " << curr_arch.name_ << "  " << aspec_space->GetIndex() << " / " << aspec_space->GetMaxSize() << std::endl;        
+    std::cout << "*** working on arch : " << curr_arch.name_ << "  " << index << " / " << aspec_space->GetMaxSize() << std::endl;        
 
     for (int problem_id = 0; problem_id < pspec_space.GetSize(); problem_id ++)
     {

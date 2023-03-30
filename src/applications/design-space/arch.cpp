@@ -75,7 +75,7 @@ YAML::Node YAMLRecursiveSearch(YAML::Node node, std::string key, std::string ind
         //std::cout << indent << "Searching Local Branch (Complete)" << std::endl;        
         if (result.IsNull() == false)
         {
-          std::cout << indent << "Returning Node" << std::endl;        
+          // std::cout << indent << "Returning Node" << std::endl;        
           return result;
         }
       }
@@ -394,11 +394,11 @@ ArchSpaceNode SweepArchSpace::GetNext() {
       std::vector<std::string> yaml_path = split(space_[i].name_, '.');
       components.insert(yaml_path[0]);
 
-      std::cout << "Searching for module: " << yaml_path[0] << std::endl;        
+      // std::cout << "Searching for module: " << yaml_path[0] << std::endl;        
       auto active = YAMLRecursiveSearch(yaml["architecture"], yaml_path[0], "");
       if (active.IsNull() == false)
       {
-        std::cout << "Updating node: \n " << active << std::endl;
+        // std::cout << "Updating node: \n " << active << std::endl;
         active["attributes"][yaml_path[1]] = val;
       }
       else {
