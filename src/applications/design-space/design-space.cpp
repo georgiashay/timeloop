@@ -113,7 +113,10 @@ void DesignSpaceExplorer::Run()
     
   std::cout << "*** total arch: " << aspec_space->GetMaxSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
 
-  std::cout << "****** SOLVING ******" << std::endl;     
+  std::cout << "****** SOLVING ******" << std::endl;  
+
+  std::filesystem::create_directory("results");
+  assert (std::filesystem::exists("results"));
 
   std::string result_filename =  "overview_" + archspec_filename_ + problemspec_filename_ + ".txt";
   replace(result_filename.begin(),result_filename.end(),'/', '.'); 
