@@ -27,6 +27,7 @@
 
 #include <iostream>
 #include <regex>
+#include <set>
 
 #include "applications/design-space/arch.hpp"
 
@@ -384,12 +385,14 @@ ArchSpaceNode SweepArchSpace::GetNext() {
       
     std::string config_append; //the specific arch details of the arch instance
     std::string header = "";
+    std::set<std::string> components;
     for (std::size_t i = 0; i < space_.size(); i++){
       std::uint64_t val = space_[i].val_curr_;
       config_append += "." + space_[i].name_ + "." + std::to_string(val);
       header += std::to_string(val) + ", "; 
 
       std::vector<std::string> yaml_path = split(space_[i].name_, '.');
+      components.insert(yaml_path[0]);
 
       std::cout << "Searching for module: " << yaml_path[0] << std::endl;        
       auto active = YAMLRecursiveSearch(yaml["architecture"], yaml_path[0], "");
@@ -400,6 +403,89 @@ ArchSpaceNode SweepArchSpace::GetNext() {
       }
       else {
         assert(0);
+      }
+    }
+
+    for (std::set<std::string>::iterator it = components.begin(); it != components.end(); it++) {
+      std::string component_name = *it;
+      auto component_yaml = YAMLRecursiveSearch(yaml["architecture"], component_name, "");
+      if (model::isBufferClass(component_yaml["class"].as<std::string>())) {
+        // Must satisfy invariant: block_size x datawidth x cluster_size == width
+        bool is_specified[4] = {false, false, false, false};
+        std::uint64_t values[4] = {1, 1, 1, 1};
+        std::vector<std::vector<std::string>> names = { {"block-size", "block_size", "n-words"}, 
+                                            {"datawidth", "word-bits", "word_width"},
+                                            {"cluster-size", "cluster_size"},
+                                            {"width", "memory_width", "data_storage_width"} };
+        std::uint64_t defaults[4] = {1, 64, 1, 64};
+        
+        auto attributes = component_yaml["attributes"];
+        std::size_t num_specified = 0;
+
+        for (std::size_t i = 0; i < 4; i++) {
+          for (auto name : names[i]) {
+            if (attributes[name]) {
+              is_specified[i] = true;
+              values[i] = attributes[name].as<std::uint64_t>();
+              break;
+            }
+          }
+          num_specified += is_specified[i];
+        }
+
+        std::uint64_t left_hand_side = 1;
+        std::uint64_t right_hand_side = values[3];
+        
+        for (std::size_t i = 0; i < 3; i++) {
+          left_hand_side *= values[i];
+        }
+
+        if (num_specified == 4) {
+          assert (left_hand_side == right_hand_side); //block_size x datawidth x cluster_size == width
+          continue;
+        }
+
+        if (!is_specified[3]) {
+          // RHS not specified, fill in with defaults and calculate RHS
+          for (std::size_t i = 0; i < 3; i++) {
+            if (!is_specified[i]) {
+              attributes[names[i][0]] = defaults[i];
+              left_hand_side *= defaults[i];
+            }
+          }
+          attributes["width"] = left_hand_side;
+        } else {
+          // RHS specified
+
+          if (!is_specified[1]) {
+            // Set word bits to default to proceed
+            attributes["datawidth"] = defaults[1];
+            left_hand_side *= defaults[1];
+            values[1] = defaults[1];
+          }
+
+          std::uint64_t width = values[3];
+          std::uint64_t word_bits = values[1];
+          std::uint64_t block_size = values[0];
+          std::uint64_t cluster_size = values[2];
+
+          assert (width % (word_bits * block_size) == 0);
+
+          if (is_specified[0] && is_specified[2]) {
+            // Block size and cluster size specified
+            assert (block_size * word_bits * cluster_size == width);
+          } else if (is_specified[2]) {
+            // Cluster size specified
+            attributes["block-size"] = width / cluster_size / word_bits;
+          } else if (is_specified[0]) {
+            // Block size specified
+            attributes["cluster-size"] = width / (word_bits * block_size);
+          } else {
+            // Neither specified
+            attributes["block-size"] = width / word_bits;
+            attributes["cluster-size"] = 1;
+          }
+        }
       }
     }
 

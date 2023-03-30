@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "compound-config/compound-config.hpp"
+#include "model/topology.hpp"
 
 class ArchSweepNode
 {

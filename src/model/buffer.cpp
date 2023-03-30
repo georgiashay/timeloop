@@ -288,7 +288,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
     {
        if (block_size * word_bits * cluster_size != width) 
        {
-         std::cout << "ERROR: " << specs.level_name  << "  block_size * word_bits * cluster_size != storage width" << std::endl;
+         std::cout << "ERROR: " << specs.name << ", " << specs.level_name  << "  block_size * word_bits * cluster_size != storage width" << std::endl;
          exit(1);
        }
     }
