@@ -402,6 +402,7 @@ ArchSpaceNode SweepArchSpace::GetNext() {
         active["attributes"][yaml_path[1]] = val;
       }
       else {
+        std::cout << "Can't find " << yaml_path[0] << std::endl;
         assert(0);
       }
     }

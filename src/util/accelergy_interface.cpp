@@ -83,7 +83,7 @@ void invokeAccelergy(std::vector<std::string> input_files, std::string out_prefi
   if (ret)
   {
     std::cout << "Failed to run Accelergy. Did you install Accelergy or specify ACCELERGYPATH correctly? Or check accelergy.log to see what went wrong" << std::endl;
-    exit(0);
+    exit(1);
   }
 #else
   (void) input_files;
