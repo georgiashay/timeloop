@@ -263,7 +263,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   // Cluster size.
   std::uint32_t cluster_size;
   specs.cluster_size = 1;
-  std::uint32_t width;
+  unsigned long long width;
   bool cluster_size_specified = false;
   if (buffer.lookupValue("cluster-size", cluster_size))
   {
@@ -312,7 +312,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
 
   // Size.
   // It has dependency on BlockSize and thus is initialized after BlockSize.
-  std::uint32_t size;
+  unsigned long long size;
   if (buffer.lookupValue("entries", size) )
   {
     assert(buffer.exists("sizeKB") == false);

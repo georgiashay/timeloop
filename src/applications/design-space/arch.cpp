@@ -230,9 +230,9 @@ ArchSpace* ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
   {
 
     std::string name = list[i]["name"].as<std::string>();
-    int min = list[i]["min"].as<int>();
-    int max = list[i]["max"].as<int>();
-    int step = list[i]["step-size"].as<int>();
+    std::uint64_t min = list[i]["min"].as<std::uint64_t>();
+    std::uint64_t max = list[i]["max"].as<std::uint64_t>();
+    std::uint64_t step = list[i]["step-size"].as<std::uint64_t>();
 
     std::cout << "    Adding variable " << name << "  min: "  << min << "  max: " << max << "  stepsize: " << step << std::endl;
 
