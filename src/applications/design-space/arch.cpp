@@ -143,20 +143,22 @@ SweepConstraint::SweepConstraint(std::string var1, std::string var2, std::string
 {
 }
 
-bool SweepConstraint::IsValid(std::vector<ArchSweepNode> space)
+bool SweepConstraint::IsValid(std::vector<std::vector<ArchSweepNode>> spaces)
 {
   bool var1_found = false;
   bool var2_found = false;
   std::uint64_t val1;
   std::uint64_t val2;
+  for (auto space : spaces) {
   for (std::size_t i = 0; i < space.size(); i++) {
-    if (space[i].name_ == var1) {
-      val1 = space[i].val_curr_;
-      var1_found = true;
-    }
-    if (space[i].name_ == var2) {
-      val2 = space[i].val_curr_;
-      var2_found = true;
+      if (space[i].name_ == var1) {
+        val1 = space[i].val_curr_;
+        var1_found = true;
+      }
+      if (space[i].name_ == var2) {
+        val2 = space[i].val_curr_;
+        var2_found = true;
+      }
     }
   }
   if (var1_found && var2_found) {
@@ -172,6 +174,100 @@ bool SweepConstraint::IsValid(std::vector<ArchSweepNode> space)
     assert(0);
   }
 }
+
+Derivation* Derivation::FromYaml(YAML::Node yaml)
+{
+  if (auto name = yaml["name"]) {
+    return new DeriveVar(name.as<std::string>());
+  }
+  if (auto value = yaml["value"]) {
+    return new DeriveValue(value.as<uint64_t>());
+  }
+  auto operation = yaml["operation"].as<std::string>();
+  auto operands = yaml["operands"];
+  Derivation* operand1 = Derivation::FromYaml(operands[0]);
+  Derivation* operand2 = Derivation::FromYaml(operands[1]);
+  return new DeriveOperation(operation, operand1, operand2);
+}
+
+
+DeriveOperation::DeriveOperation(std::string op, Derivation* operand1, Derivation* operand2) :
+  op_(op), operand1_(operand1), operand2_(operand2)
+{
+}
+
+uint64_t DeriveOperation::value(std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, YAML::Node arch)
+{
+  uint64_t val1 = operand1_->value(vars, space, arch);
+  uint64_t val2 = operand2_->value(vars, space, arch);
+
+  if (op_ == "max") {
+    return val1 > val2 ? val1 : val2;
+  } else if (op_ == "mul") {
+    return val1 * val2;
+  } else if (op_ == "div") {
+    return val1 / val2;
+  } else if (op_ == "add") {
+    return val1 + val2;
+  } else if (op_ == "sub") {
+    return val1 - val2;
+  }
+   
+  std::cout << "Not a valid op type" << std::endl;
+  assert(0);
+}
+
+DeriveValue::DeriveValue(std::uint64_t value) :
+  value_(value)
+{
+}
+
+uint64_t DeriveValue::value(std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, YAML::Node arch)
+{
+  (void) vars;
+  (void) space;
+  (void) arch;
+  return value_;
+}
+
+DeriveVar::DeriveVar(std::string name) :
+  name_(name)
+{
+}
+
+uint64_t DeriveVar::value(std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, YAML::Node arch)
+{
+  for (std::size_t i = 0; i < vars.size(); i++) {
+    if (vars[i].name_ == name_) {
+      return vars[i].val_curr_;
+    }
+  }
+  
+  for (std::size_t i = 0; i < space.size(); i++) {
+    if (space[i].name_ == name_) {
+      return space[i].val_curr_;
+    }
+  }
+
+  std::vector<std::string> split_dot = split(name_, '.');
+  auto component = YAMLRecursiveSearch(arch, split_dot[0], "");
+  if (component.IsNull() == false) {
+    auto attributes = component["attributes"];
+    if (attributes[split_dot[1]]) {
+      return attributes[split_dot[1]].as<uint64_t>();
+    } else {
+      assert(0);
+    }
+  } else {
+    assert(0);
+  }
+}
+
+DeriveNode::DeriveNode(std::string name, Derivation* derivation) :
+  name_(name), derivation_(derivation)
+{
+}
+
 
 ArchSpaceNode::ArchSpaceNode()
 {
@@ -220,6 +316,21 @@ ArchSpace* ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
   std::cout << "  Reading arch sweep parameters"  << std::endl;
   std::string base_yaml_filename = sweep_yaml["arch-spec"].as<std::string>();
 
+  // get list of pure sweep variables
+  std::vector<ArchSweepNode> vars;
+  auto var_list = sweep_yaml["variables"];
+
+  for (std::size_t i = 0; i < var_list.size(); i++) {
+    std::string name = var_list[i]["name"].as<std::string>();
+    std::uint64_t min = var_list[i]["min"].as<std::uint64_t>();
+    std::uint64_t max = var_list[i]["max"].as<std::uint64_t>();
+    std::uint64_t step = var_list[i]["step-size"].as<std::uint64_t>();
+
+    std::cout << "    Adding pure variable " << name << "  min: "  << min << "  max: " << max << "  stepsize: " << step << std::endl;
+
+    vars.push_back(ArchSweepNode(name, min, max, step));
+  }
+
   //get list of arch variables that change
   // - initialize the space vector
   std::vector<ArchSweepNode> space;
@@ -261,7 +372,18 @@ ArchSpace* ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     }
   }
 
-  return new SweepArchSpace(base_yaml_filename, space, sweep_constraints);
+  std::vector<DeriveNode> derivations;
+  auto deriv_list = sweep_yaml["derived"];
+
+  for (std::size_t i = 0; i < deriv_list.size(); i++) {
+    std::string name = deriv_list[i]["name"].as<std::string>();
+    auto deriv_yaml = deriv_list[i]["derivation"];
+    Derivation* derivation = Derivation::FromYaml(deriv_yaml);
+    std::cout << "Found derivation for " << name << std::endl;
+    derivations.push_back(DeriveNode(name, derivation));
+  }
+
+  return new SweepArchSpace(base_yaml_filename, vars, space, sweep_constraints, derivations);
 }
 
 
@@ -342,8 +464,8 @@ std::uint64_t FileListArchSpace::GetIndex()
   return i;
 }
 
-SweepArchSpace::SweepArchSpace(std::string base_yaml_filename, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints) :
-  base_yaml_filename_(base_yaml_filename), space_(space), constraints_(constraints), done_(false), index_(0)
+SweepArchSpace::SweepArchSpace(std::string base_yaml_filename, std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints, std::vector<DeriveNode> derived) :
+  base_yaml_filename_(base_yaml_filename), vars_(vars), space_(space), constraints_(constraints), derived_(derived), done_(false), index_(0)
 {
   headers_ = "";
   for (std::size_t i = 0; i < space.size(); i++) {
@@ -400,6 +522,25 @@ ArchSpaceNode SweepArchSpace::GetNext() {
       {
         // std::cout << "Updating node: \n " << active << std::endl;
         active["attributes"][yaml_path[1]] = val;
+      }
+      else {
+        std::cout << "Can't find " << yaml_path[0] << std::endl;
+        assert(0);
+      }
+    }
+
+    for (std::size_t i = 0; i < derived_.size(); i++) {
+      std::string name = derived_[i].name_;
+      std::uint64_t value = derived_[i].derivation_->value(vars_, space_, yaml["architecture"]);
+      std::cout << "Derived that " << name << " is " << value << std::endl;
+
+      std::vector<std::string> yaml_path = split(name, '.');
+      components.insert(yaml_path[0]);
+
+      auto active = YAMLRecursiveSearch(yaml["architecture"], yaml_path[0], "");
+      if (active.IsNull() == false)
+      {
+        active["attributes"][yaml_path[1]] = value;
       }
       else {
         std::cout << "Can't find " << yaml_path[0] << std::endl;
@@ -514,30 +655,44 @@ void SweepArchSpace::PrepareNext()
   }
 }
 
+std::uint64_t SweepArchSpace::NumVars()
+{
+  return vars_.size() + space_.size();
+}
+
+ArchSweepNode SweepArchSpace::GetVar(std::uint64_t i)
+{
+  if (i < vars_.size()) {
+    return vars_[i];
+  } else {
+    return space_[i - vars_.size()];
+  }
+}
 
 
 void SweepArchSpace::AdvanceSweepNodes() {
-  for (std::size_t i = 0; i < space_.size(); i++) {
-    std::cout << space_[i].name_ << ": " << space_[i].val_curr_ << ", ";
+  for (std::size_t i = 0; i < NumVars(); i++) {
+    std::cout << GetVar(i).name_ << ": " << GetVar(i).val_curr_ << ", ";
   }
   std::cout << std::endl;
   //increment (step through) the sweep space
   std::size_t i = 0;
   while (i < space_.size())
   {
-    space_[i].val_curr_ *= space_[i].val_step_size_;
+    auto var = GetVar(i);
+    var.val_curr_ *= var.val_step_size_;
     
     //if we ov
-    if (space_[i].val_curr_ > space_[i].val_max_)
+    if (var.val_curr_ > var.val_max_)
     {
       //check if we reached the end, we are finished generating
-      if ((i + 1) >= space_.size())
+      if ((i + 1) >= NumVars())
       {
         done_ = true;
       }
       //reset and carry to increment the next "digit" of the sweep
       else {
-        space_[i].val_curr_ = space_[i].val_min_; //reset
+        var.val_curr_ = var.val_min_; //reset
         i++; //move to next
       }
     }
@@ -550,7 +705,7 @@ void SweepArchSpace::AdvanceSweepNodes() {
 
 bool SweepArchSpace::PassesConstraints() {
   for (std::size_t j = 0; j < constraints_.size(); j++) {
-    if (!constraints_[j].IsValid(space_)) {
+    if (!constraints_[j].IsValid({vars_, space_})) {
       return false;
     }
   }

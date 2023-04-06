@@ -53,11 +53,58 @@ class SweepConstraint
 {
   public:
     SweepConstraint(std::string var1, std::string var2, std::string op);
-    bool IsValid(std::vector<ArchSweepNode> space);
+    bool IsValid(std::vector<std::vector<ArchSweepNode>> spaces);
   private:
     std::string var1;
     std::string var2;
     std::string op;
+};
+
+class Derivation
+{
+  public:
+    static Derivation* FromYaml(YAML::Node yaml);
+    virtual uint64_t value(std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, YAML::Node arch) = 0;
+};
+
+class DeriveOperation : public Derivation
+{
+  private:
+    std::string op_;
+    Derivation* operand1_;
+    Derivation* operand2_;
+
+  public:
+    DeriveOperation(std::string op, Derivation* operand1, Derivation* operand2);
+    uint64_t value(std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, YAML::Node arch);
+};
+
+class DeriveValue : public Derivation
+{
+  private:
+    std::uint64_t value_;
+
+  public:
+    DeriveValue(std::uint64_t value);
+    uint64_t value(std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, YAML::Node arch);
+};
+
+class DeriveVar : public Derivation
+{
+  private:
+    std::string name_;
+  public:
+    DeriveVar(std::string name);
+    uint64_t value(std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, YAML::Node arch);
+};
+
+class DeriveNode
+{
+  public:
+    std::string name_;
+    Derivation* derivation_;
+
+    DeriveNode(std::string name, Derivation* derivation);
 };
 
 
@@ -97,15 +144,17 @@ class SweepArchSpace : public ArchSpace
 {
   private:
     std::string base_yaml_filename_;
+    std::vector<ArchSweepNode> vars_;
     std::vector<ArchSweepNode> space_;
     std::vector<SweepConstraint> constraints_;
+    std::vector<DeriveNode> derived_;
     std::string headers_;
     bool done_;
     std::uint64_t max_size_;
     std::uint64_t index_;
 
   public:
-    SweepArchSpace(std::string base_yaml_filename, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints);
+    SweepArchSpace(std::string base_yaml_filename, std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints, std::vector<DeriveNode> derived);
     std::string GetExtraHeaders();
     bool HasNext();
     ArchSpaceNode GetNext();
@@ -113,6 +162,8 @@ class SweepArchSpace : public ArchSpace
     std::uint64_t GetIndex();
 
   private:
+    std::uint64_t NumVars();
+    ArchSweepNode GetVar(std::uint64_t i);
     void PrepareNext();
     bool PassesConstraints();
     void AdvanceSweepNodes();
