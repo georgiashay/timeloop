@@ -468,6 +468,9 @@ SweepArchSpace::SweepArchSpace(std::string base_yaml_filename, std::vector<ArchS
   base_yaml_filename_(base_yaml_filename), vars_(vars), space_(space), constraints_(constraints), derived_(derived), done_(false), index_(0)
 {
   headers_ = "";
+  for (std::size_t i = 0; i < vars.size(); i++) {
+    headers_ += vars[i].name_ + ", ";
+  }
   for (std::size_t i = 0; i < space.size(); i++) {
     headers_ += space[i].name_ + ", ";
   }
@@ -507,6 +510,11 @@ ArchSpaceNode SweepArchSpace::GetNext() {
       
     std::string config_append; //the specific arch details of the arch instance
     std::string header = "";
+    for (std::size_t i = 0; i < vars_.size(); i++) {
+      std::uint64_t val = vars_[i].val_curr_;
+      config_append += "." + vars_[i].name_ + "." + std::to_string(val);
+      header += std::to_string(val) + ", ";
+    }
     std::set<std::string> components;
     for (std::size_t i = 0; i < space_.size(); i++){
       std::uint64_t val = space_[i].val_curr_;
@@ -660,7 +668,7 @@ std::uint64_t SweepArchSpace::NumVars()
   return vars_.size() + space_.size();
 }
 
-ArchSweepNode SweepArchSpace::GetVar(std::uint64_t i)
+ArchSweepNode& SweepArchSpace::GetVar(std::uint64_t i)
 {
   if (i < vars_.size()) {
     return vars_[i];
@@ -679,7 +687,7 @@ void SweepArchSpace::AdvanceSweepNodes() {
   std::size_t i = 0;
   while (i < space_.size())
   {
-    auto var = GetVar(i);
+    ArchSweepNode& var = GetVar(i);
     var.val_curr_ *= var.val_step_size_;
     
     //if we ov

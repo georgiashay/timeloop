@@ -153,6 +153,7 @@ class Topology : public Module
       swap(first.networks, second.networks);
       swap(first.storage_map, second.storage_map);
       swap(first.arithmetic_map, second.arithmetic_map);
+      swap(first.area, second.area);
     }
 
     Specs& operator = (Specs other)

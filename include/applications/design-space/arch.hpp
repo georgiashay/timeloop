@@ -163,7 +163,7 @@ class SweepArchSpace : public ArchSpace
 
   private:
     std::uint64_t NumVars();
-    ArchSweepNode GetVar(std::uint64_t i);
+    ArchSweepNode& GetVar(std::uint64_t i);
     void PrepareNext();
     bool PassesConstraints();
     void AdvanceSweepNodes();

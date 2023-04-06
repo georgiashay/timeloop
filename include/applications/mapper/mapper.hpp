@@ -83,6 +83,8 @@ class Application
   EvaluationResult best_;
   EvaluationResult global_best_;
 
+  model::Engine engine_best_;
+
  private:
 
   // Serialization
@@ -104,6 +106,9 @@ class Application
 
   EvaluationResult GetGlobalBest();
   model::Engine::Specs GetArchSpecs();
+  problem::Workload GetWorkload();
+  sparse::SparseOptimizationInfo* GetSparseOptimizations();
+  model::Engine GetEngineBest();
 
   void Run();
 };

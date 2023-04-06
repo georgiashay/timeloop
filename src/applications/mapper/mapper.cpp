@@ -310,6 +310,20 @@ model::Engine::Specs Application::GetArchSpecs()
   return arch_specs_;
 }
 
+problem::Workload Application::GetWorkload()
+{
+  return workload_;
+}
+
+sparse::SparseOptimizationInfo* Application::GetSparseOptimizations()
+{
+  return sparse_optimizations_;
+}
+
+model::Engine Application::GetEngineBest() 
+{
+  return engine_best_;
+}
 
 // ---------------
 // Run the mapper.
@@ -530,6 +544,7 @@ void Application::Run()
     model::Engine engine;
     engine.Spec(arch_specs_);
     engine.Evaluate(global_best_.mapping, workload_, sparse_optimizations_);
+    engine_best_ = engine;
 
     std::ofstream stats_file(stats_file_name);
     stats_file << engine << std::endl;

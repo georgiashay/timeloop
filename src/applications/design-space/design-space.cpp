@@ -33,8 +33,8 @@
 
 using namespace config;
 
-PointResult::PointResult(std::string name, EvaluationResult result, model::Topology::Specs specs, ArchSpaceNode arch) :
-    config_name_(name), result_(result), specs_(specs), arch_(arch)
+PointResult::PointResult(std::string name, EvaluationResult result, model::Engine engine, ArchSpaceNode arch) :
+    config_name_(name), result_(result), engine_(engine), arch_(arch)
 {
 }
   
@@ -49,9 +49,9 @@ void PointResult::PrintEvaluationResult(std::ostream& out)
   out << arch_.header_;
   out << result_.stats.algorithmic_computes;
   out << ", " << result_.stats.cycles;
-  out << ", " << specs_.GetArea();
-  out << ", " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(4) << result_.stats.utilization;
-  out << ", " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << result_.stats.energy / result_.stats.algorithmic_computes;
+  out << ", " << std::setw(16) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine_.Area();
+  out << ", " << std::setw(6) << OUT_FLOAT_FORMAT << std::setprecision(4) << result_.stats.utilization;
+  out << ", " << std::setw(12) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << result_.stats.energy / result_.stats.algorithmic_computes;
   out << ", " << result_.mapping.PrintCompact() << std::endl;
 }
 
@@ -160,10 +160,10 @@ void DesignSpaceExplorer::Run()
       //SimpleMapper mapper = SimpleMapper(config_name, arch, problem);
       mapper.Run();
 
-      model::Engine::Specs arch_specs = mapper.GetArchSpecs();
-      model::Engine engine;
-      engine.Spec(arch_specs);
-      PointResult result(config_name, mapper.GetGlobalBest(), engine.GetTopology().GetSpecs(), curr_arch);
+
+      model::Engine engine = mapper.GetEngineBest();
+
+      PointResult result(config_name, mapper.GetGlobalBest(), engine, curr_arch);
       result.PrintEvaluationResult(result_txt_file);
       if (!keep_files_) {
         std::filesystem::remove_all(file_name);
