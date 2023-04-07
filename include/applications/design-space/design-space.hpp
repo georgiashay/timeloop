@@ -54,7 +54,7 @@ struct PointResult
   
   PointResult(std::string name, EvaluationResult result, model::Engine engine, ArchSpaceNode arch);
   
-  static void PrintEvaluationResultsHeader(ArchSpace* aspace, std::ostream& out);
+  void PrintEvaluationResultsHeader(ArchSpace* aspace, std::ostream& out);
   void PrintEvaluationResult(std::ostream& out);
 };
 

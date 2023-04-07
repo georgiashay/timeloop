@@ -41,7 +41,17 @@ PointResult::PointResult(std::string name, EvaluationResult result, model::Engin
 void PointResult::PrintEvaluationResultsHeader(ArchSpace* aspace, std::ostream& out)
 {
   out << aspace->GetExtraHeaders();
-  out << "Total Computes, Cycles, Area, utilization, pJ/Compute, Mapping" << std::endl;
+  out << "Total Computes, Cycles, Area, utilization, pJ/Compute, Mapping";
+  
+  model::Topology topology = engine_.GetTopology();
+  for (std::size_t i = 0; i < topology.NumStorageLevels(); i++) {
+      std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(i);
+      out << ", " << buffer_level->Name() << " Accesses";
+      out << ", " << buffer_level->Name() << " Cycles";
+      out << ", " << buffer_level->Name() << " Energy";
+      out << ", " << buffer_level->Name() << " Area";
+  }
+  out << std::endl;
 }
 
 void PointResult::PrintEvaluationResult(std::ostream& out)
@@ -49,10 +59,20 @@ void PointResult::PrintEvaluationResult(std::ostream& out)
   out << arch_.header_;
   out << result_.stats.algorithmic_computes;
   out << ", " << result_.stats.cycles;
-  out << ", " << std::setw(16) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine_.Area();
-  out << ", " << std::setw(6) << OUT_FLOAT_FORMAT << std::setprecision(4) << result_.stats.utilization;
-  out << ", " << std::setw(12) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << result_.stats.energy / result_.stats.algorithmic_computes;
-  out << ", " << result_.mapping.PrintCompact() << std::endl;
+  out << ", " << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine_.Area();
+  out << ", " << OUT_FLOAT_FORMAT << std::setprecision(4) << result_.stats.utilization;
+  out << ", " << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << result_.stats.energy / result_.stats.algorithmic_computes;
+  out << ", " << result_.mapping.PrintCompact();
+
+  model::Topology topology = engine_.GetTopology();
+  for (std::size_t i = 0; i < topology.NumStorageLevels(); i++) {
+      std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(i);
+      out << ", " << buffer_level->Accesses();
+      out << ", " << buffer_level->Cycles();
+      out << ", " << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << buffer_level->Energy() / result_.stats.algorithmic_computes;
+      out << ", " << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << buffer_level->Area();
+  }
+  out << std::endl;  
 }
 
 //--------------------------------------------//
@@ -122,8 +142,7 @@ void DesignSpaceExplorer::Run()
   replace(result_filename.begin(),result_filename.end(),'/', '.'); 
   std::ofstream result_txt_file("results/" + result_filename);
 
-  PointResult::PrintEvaluationResultsHeader(aspec_space, result_txt_file);
-
+  bool printed_header = false;
   //main loop, do the full product of problems x arches
   while(aspec_space->HasNext())
   {
@@ -164,6 +183,10 @@ void DesignSpaceExplorer::Run()
       model::Engine engine = mapper.GetEngineBest();
 
       PointResult result(config_name, mapper.GetGlobalBest(), engine, curr_arch);
+      if (!printed_header) {
+        result.PrintEvaluationResultsHeader(aspec_space, result_txt_file);
+        printed_header = true;
+      }
       result.PrintEvaluationResult(result_txt_file);
       if (!keep_files_) {
         std::filesystem::remove_all(file_name);

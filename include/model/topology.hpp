@@ -265,10 +265,6 @@ class Topology : public Module
   }
 
  private:
-  std::shared_ptr<Level> GetLevel(unsigned level_id) const;
-  std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
-  std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
-
   void FloorPlan();
   void ComputeStats(bool eval_success);
 
@@ -325,6 +321,10 @@ class Topology : public Module
   unsigned NumLevels() const;
   unsigned NumStorageLevels() const;
   unsigned NumNetworks() const;
+
+  std::shared_ptr<Level> GetLevel(unsigned level_id) const;
+  std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
+  std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
   std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
