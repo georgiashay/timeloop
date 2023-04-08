@@ -472,6 +472,13 @@ SweepArchSpace::SweepArchSpace(std::string base_yaml_filename, std::string chip_
   }
 
   max_size_ = 1;
+  for (std::size_t i = 0; i < vars.size(); i++) {
+    std::uint64_t this_var_size = 0;
+    for (std::uint64_t v = vars[i].val_min_; v <= vars[i].val_max_; v *= vars[i].val_step_size_) {
+      this_var_size++;
+    }
+    max_size_ *= this_var_size;
+  }
   for (std::size_t i = 0; i < space.size(); i++) {
     std::uint64_t this_var_size = 0;
     for (std::uint64_t v = space[i].val_min_; v <= space[i].val_max_; v *= space[i].val_step_size_) {
