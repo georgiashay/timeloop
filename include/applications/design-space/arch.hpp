@@ -123,21 +123,22 @@ class ArchSpaceNode
 class ArchSpace
 {
  protected:
-  std::string name_;
+  std::string chip_name_;
 
  public:
-  ArchSpace();
-  ArchSpace(std::string n);
+  ArchSpace(std::string chip="");
 
   static ArchSpace* InitializeFromFile(std::string filename);
-  static ArchSpace* InitializeFromFileList(YAML::Node list_yaml);
-  static ArchSpace* InitializeFromFileSweep(YAML::Node sweep_yaml);
+  static ArchSpace* InitializeFromFileList(YAML::Node list_yaml, std::string chip_name);
+  static ArchSpace* InitializeFromFileSweep(YAML::Node sweep_yaml, std::string chip_name);
 
   virtual std::string GetExtraHeaders() = 0;
   virtual bool HasNext() = 0;
   virtual ArchSpaceNode GetNext() = 0;
   virtual std::uint64_t GetMaxSize() = 0;
   virtual std::uint64_t GetIndex() = 0;
+
+  std::string ChipName() { return chip_name_; };
 };
 
 class SweepArchSpace : public ArchSpace
@@ -154,7 +155,7 @@ class SweepArchSpace : public ArchSpace
     std::uint64_t index_;
 
   public:
-    SweepArchSpace(std::string base_yaml_filename, std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints, std::vector<DeriveNode> derived);
+    SweepArchSpace(std::string base_yaml_filename, std::string chip_name, std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints, std::vector<DeriveNode> derived);
     std::string GetExtraHeaders();
     bool HasNext();
     ArchSpaceNode GetNext();
@@ -191,7 +192,7 @@ class FileListArchSpace : public ArchSpace
     std::size_t i;
   
   public:
-    FileListArchSpace(std::vector<std::string> filenames);
+    FileListArchSpace(std::vector<std::string> filenames, std::string chip_name);
     std::string GetExtraHeaders();
     bool HasNext();
     ArchSpaceNode GetNext();

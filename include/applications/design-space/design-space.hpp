@@ -49,12 +49,13 @@ struct PointResult
   //Mapping best_mapping_; can't be used due to bug
   EvaluationResult result_;
   model::Engine engine_;
+  ArchSpace* aspace_;
   ArchSpaceNode arch_;
   std::string extra_headers_;
   
-  PointResult(std::string name, EvaluationResult result, model::Engine engine, ArchSpaceNode arch);
+  PointResult(std::string name, EvaluationResult result, model::Engine engine, ArchSpace* aspace, ArchSpaceNode arch);
   
-  void PrintEvaluationResultsHeader(ArchSpace* aspace, std::ostream& out);
+  void PrintEvaluationResultsHeader(std::ostream& out);
   void PrintEvaluationResult(std::ostream& out);
 };
 

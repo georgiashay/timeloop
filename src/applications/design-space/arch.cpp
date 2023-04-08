@@ -279,12 +279,8 @@ ArchSpaceNode::ArchSpaceNode(std::string n, YAML::Node a, std::string h) :
 }
 
 
-ArchSpace::ArchSpace()
-{
-}
-
-ArchSpace::ArchSpace(std::string n) :
-    name_(n)
+ArchSpace::ArchSpace(std::string chip) :
+    chip_name_(chip)
 {
 }
 
@@ -295,7 +291,7 @@ ArchSpace* ArchSpace::InitializeFromFile(std::string filename)
 }
 
 
-ArchSpace* ArchSpace::InitializeFromFileList(YAML::Node list_yaml)
+ArchSpace* ArchSpace::InitializeFromFileList(YAML::Node list_yaml, std::string chip_name)
 {  
   std::cout << "Initializing Architectures from list "  << std::endl;
 
@@ -308,10 +304,10 @@ ArchSpace* ArchSpace::InitializeFromFileList(YAML::Node list_yaml)
 
     std::cout << "  Using arch file: " << filename  << std::endl;
   }
-  return new FileListArchSpace(filenames);
+  return new FileListArchSpace(filenames, chip_name);
 }
 
-ArchSpace* ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
+ArchSpace* ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml, std::string chip_name)
 {
   std::cout << "  Reading arch sweep parameters"  << std::endl;
   std::string base_yaml_filename = sweep_yaml["arch-spec"].as<std::string>();
@@ -383,7 +379,7 @@ ArchSpace* ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     derivations.push_back(DeriveNode(name, derivation));
   }
 
-  return new SweepArchSpace(base_yaml_filename, vars, space, sweep_constraints, derivations);
+  return new SweepArchSpace(base_yaml_filename, chip_name, vars, space, sweep_constraints, derivations);
 }
 
 
@@ -423,8 +419,8 @@ std::uint64_t FileArchSpace::GetIndex() {
   return 0;
 }
 
-FileListArchSpace::FileListArchSpace(std::vector<std::string> filenames) :
-  filenames_(filenames), i(0)
+FileListArchSpace::FileListArchSpace(std::vector<std::string> filenames, std::string chip_name) :
+  ArchSpace(chip_name), filenames_(filenames), i(0)
 {
 
 }
@@ -464,8 +460,8 @@ std::uint64_t FileListArchSpace::GetIndex()
   return i;
 }
 
-SweepArchSpace::SweepArchSpace(std::string base_yaml_filename, std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints, std::vector<DeriveNode> derived) :
-  base_yaml_filename_(base_yaml_filename), vars_(vars), space_(space), constraints_(constraints), derived_(derived), done_(false), index_(0)
+SweepArchSpace::SweepArchSpace(std::string base_yaml_filename, std::string chip_name, std::vector<ArchSweepNode> vars, std::vector<ArchSweepNode> space, std::vector<SweepConstraint> constraints, std::vector<DeriveNode> derived) :
+  ArchSpace(chip_name), base_yaml_filename_(base_yaml_filename), vars_(vars), space_(space), constraints_(constraints), derived_(derived), done_(false), index_(0)
 {
   headers_ = "";
   for (std::size_t i = 0; i < vars.size(); i++) {

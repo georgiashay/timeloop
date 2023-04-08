@@ -114,8 +114,14 @@ class Topology : public Module
   //
   class Specs
   {
+   public:
+    struct SubtreeSpecs {
+        std::string name;
+        std::uint64_t level_count;
+    };
    private:
     std::vector<std::shared_ptr<LevelSpecs>> levels;
+    std::vector<SubtreeSpecs> subtrees;
     std::vector<std::shared_ptr<LegacyNetwork::Specs>> inferred_networks;
     std::vector<std::shared_ptr<NetworkSpecs>> networks;
     std::map<unsigned, unsigned> storage_map;
@@ -133,6 +139,9 @@ class Topology : public Module
       for (auto& level_p: other.levels)
         levels.push_back(level_p->Clone());
 
+      for (auto subtree_p: other.subtrees)
+        subtrees.push_back(subtree_p);
+
       for (auto& inferred_network_p: other.inferred_networks)
         inferred_networks.push_back(std::make_shared<LegacyNetwork::Specs>(*inferred_network_p));
 
@@ -149,6 +158,7 @@ class Topology : public Module
     {
       using std::swap;
       swap(first.levels, second.levels);
+      swap(first.subtrees, second.subtrees);
       swap(first.inferred_networks, second.inferred_networks);
       swap(first.networks, second.networks);
       swap(first.storage_map, second.storage_map);
@@ -165,9 +175,13 @@ class Topology : public Module
     unsigned NumLevels() const;
     unsigned NumStorageLevels() const;
     unsigned NumNetworks() const;
+    unsigned NumSubtrees() const;
+    unsigned NumLevelsAtSubtree(unsigned subtree_id) const;
 
     std::vector<std::string> LevelNames() const;
     std::vector<std::string> StorageLevelNames() const;
+
+    std::string GetSubtreeName(unsigned subtree_id) const;
 
     void ParseAccelergyERT(config::CompoundConfigNode ert);
     void ParseAccelergyART(config::CompoundConfigNode art);
@@ -175,6 +189,7 @@ class Topology : public Module
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
     void AddInferredNetwork(std::shared_ptr<LegacyNetwork::Specs> specs);
     void AddNetwork(std::shared_ptr<NetworkSpecs> specs);
+    void AddSubtree(SubtreeSpecs subtree);
     void SetArea(double area);
 
     unsigned StorageMap(unsigned i) const { return storage_map.at(i); }
@@ -185,6 +200,9 @@ class Topology : public Module
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
     std::shared_ptr<LegacyNetwork::Specs> GetInferredNetwork(unsigned network_id) const;
     std::shared_ptr<NetworkSpecs> GetNetwork(unsigned network_id) const;
+    SubtreeSpecs GetSubtree(unsigned subtree_id) const;
+    std::shared_ptr<LevelSpecs> GetLocalLevelAtSubtree(unsigned subtree_id, unsigned local_id) const;
+
     double GetArea() const;
   };
 
@@ -321,10 +339,15 @@ class Topology : public Module
   unsigned NumLevels() const;
   unsigned NumStorageLevels() const;
   unsigned NumNetworks() const;
+  unsigned NumSubtrees() const;
+  unsigned NumLevelsAtSubtree(unsigned subtree_id) const;
+
+  std::string GetSubtreeName(unsigned subtree_id) const;
 
   std::shared_ptr<Level> GetLevel(unsigned level_id) const;
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
+  std::shared_ptr<Level> GetLocalLevelAtSubtree(unsigned subtree_id, unsigned local_id) const;
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
   std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
@@ -336,6 +359,8 @@ class Topology : public Module
   // backwards-compatibility with some applications.
   double Energy() const { return stats_.energy; }
   double Area() const { return specs_.GetArea(); }
+  double SubtreeArea(unsigned subtree_id);
+  double SubtreeArea(std::string subtree_name);
   std::uint64_t Cycles() const { return stats_.cycles; }
   double Utilization() const { return stats_.utilization; }
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const { return stats_.tile_sizes; }
@@ -345,6 +370,7 @@ class Topology : public Module
   std::uint64_t ActualComputes() const { return stats_.actual_computes; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
   void PrintOAVES(std::ostream& out, Mapping& mapping) const;
+
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };

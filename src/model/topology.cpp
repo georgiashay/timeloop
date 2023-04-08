@@ -265,6 +265,26 @@ std::vector<std::string> Topology::Specs::StorageLevelNames() const
   return storage_level_names;
 }
 
+std::string Topology::Specs::GetSubtreeName(unsigned subtree_id) const
+{
+  return subtrees[subtree_id].name;
+}
+
+Topology::Specs::SubtreeSpecs Topology::Specs::GetSubtree(unsigned subtree_id) const
+{
+  return subtrees[subtree_id];
+}
+
+std::shared_ptr<LevelSpecs> Topology::Specs::GetLocalLevelAtSubtree(unsigned subtree_id, unsigned local_id) const
+{
+  unsigned level_id = 0;
+  for (unsigned s_id = 0; s_id < subtree_id; s_id++) {
+    level_id += subtrees[s_id].level_count;
+  }
+  level_id += local_id;
+  return GetLevel(local_id);
+}
+
 //
 // Level accessors.
 //
@@ -298,6 +318,11 @@ void Topology::Specs::AddNetwork(std::shared_ptr<NetworkSpecs> specs)
   networks.push_back(specs);
 }
 
+void Topology::Specs::AddSubtree(Topology::Specs::SubtreeSpecs subtree)
+{
+  subtrees.push_back(subtree);
+}
+
 void Topology::Specs::SetArea(double area) {
   this->area = area;
 }
@@ -315,6 +340,16 @@ unsigned Topology::Specs::NumStorageLevels() const
 unsigned Topology::Specs::NumNetworks() const
 {
   return networks.size();
+}
+
+unsigned Topology::Specs::NumSubtrees() const
+{
+  return subtrees.size();
+}
+
+unsigned Topology::Specs::NumLevelsAtSubtree(unsigned subtree_id) const
+{
+  return subtrees[subtree_id].level_count;
 }
 
 std::shared_ptr<LevelSpecs> Topology::Specs::GetLevel(unsigned level_id) const
@@ -953,6 +988,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
   auto curNode = designRoot;
  
   std::vector<std::shared_ptr<LevelSpecs>> storages; // serialize all storages
+  std::vector<Topology::Specs::SubtreeSpecs> subtrees;
   std::vector<std::shared_ptr<LegacyNetwork::Specs>> inferred_networks;
   std::vector<std::shared_ptr<NetworkSpecs>> networks;
 
@@ -981,6 +1017,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
       std::vector<std::shared_ptr<LevelSpecs>> localStorages;
       std::vector<std::shared_ptr<LegacyNetwork::Specs>> localInferredNetworks;
       std::vector<std::shared_ptr<NetworkSpecs>> localNetworks;
+      std::size_t num_levels = 0;
 
       for (int c = 0; c < curLocal.getLength() ; c++)
       {
@@ -995,6 +1032,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
           // Create a buffer spec.
           auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements, is_sparse_topology));
           localStorages.push_back(level_specs_p);
+          num_levels++;
 
           // Create an inferred network spec.
           // A network object corresponding to this spec will only be instantiated if a user-specified
@@ -1007,6 +1045,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
           // Create arithmetic.
           auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements, is_sparse_topology));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
+          num_levels++;
         }
         else if (isNetworkClass(cClass))
         {
@@ -1018,6 +1057,8 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
           // std::cout << "  Neglect component: " << cName << " due to unknown class: " << cClass << std::endl;
         }
       }
+      Topology::Specs::SubtreeSpecs subtree = {.name = curNodeName, .level_count = num_levels};
+      subtrees.insert(subtrees.begin(), subtree);
       // The deeper the tree, the closer the buffer to be with ArithmeticUnits.
       // Reverse the order so that top in the local list is at the bottem, matching the tree seq
       storages.insert(storages.begin(), localStorages.rbegin(), localStorages.rend());
@@ -1043,6 +1084,11 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
     specs.AddNetwork(network);
   }
 
+  for (unsigned i = 0; i < subtrees.size(); i++) {
+    auto subtree = subtrees[i];
+    specs.AddSubtree(subtree);
+  }
+
   return specs;
 };
 
@@ -1064,6 +1110,24 @@ unsigned Topology::NumNetworks() const
   return specs_.NumNetworks();
 }
 
+unsigned Topology::NumSubtrees() const
+{
+  assert (is_specced_);
+  return specs_.NumSubtrees();
+}
+
+unsigned Topology::NumLevelsAtSubtree(unsigned subtree_id) const
+{
+  assert (is_specced_);
+  return specs_.NumLevelsAtSubtree(subtree_id);
+}
+
+std::string Topology::GetSubtreeName(unsigned subtree_id) const
+{
+  assert (is_specced_);
+  return specs_.GetSubtreeName(subtree_id);
+}
+
 std::shared_ptr<Level> Topology::GetLevel(unsigned level_id) const
 {
   return levels_.at(level_id);
@@ -1079,6 +1143,51 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
 {
   auto level_id = specs_.ArithmeticMap();
   return std::static_pointer_cast<ArithmeticUnits>(levels_.at(level_id));
+}
+
+std::shared_ptr<Level> Topology::GetLocalLevelAtSubtree(unsigned subtree_id, unsigned local_id) const
+{
+  assert(is_specced_);
+  unsigned level_id = 0;
+  for (unsigned s_id = 0; s_id < subtree_id; s_id++) {
+    level_id += specs_.GetSubtree(s_id).level_count;
+  }
+  level_id += local_id;
+  return GetLevel(level_id);
+}
+
+double Topology::SubtreeArea(unsigned subtree_id)
+{
+  assert(is_specced_);
+  double chipArea = 0;
+  unsigned level_id = 0;
+  for (std::size_t i = 0; i < subtree_id; i++) {
+    for (std::size_t j = 0; j < NumLevelsAtSubtree(i); j++) {
+      std::shared_ptr<model::Level> level = GetLevel(level_id);
+      chipArea += level->Area();
+      level_id++;
+    }
+  }
+  return chipArea;
+}
+
+double Topology::SubtreeArea(std::string subtree_name)
+{
+  assert(is_specced_);
+  double chipArea = 0;
+  unsigned level_id = 0;
+  for (std::size_t i = 0; i < NumSubtrees(); i++) {
+    for (std::size_t j = 0; j < NumLevelsAtSubtree(i); j++) {
+      std::shared_ptr<model::Level> level = GetLevel(level_id);
+      chipArea += level->Area();
+      level_id++;
+    }
+
+    if (subtree_name == GetSubtreeName(i)) {
+      break;
+    }
+  }
+  return chipArea;
 }
 
 void Topology::Reset()

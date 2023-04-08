@@ -33,15 +33,15 @@
 
 using namespace config;
 
-PointResult::PointResult(std::string name, EvaluationResult result, model::Engine engine, ArchSpaceNode arch) :
-    config_name_(name), result_(result), engine_(engine), arch_(arch)
+PointResult::PointResult(std::string name, EvaluationResult result, model::Engine engine, ArchSpace* aspace, ArchSpaceNode arch) :
+    config_name_(name), result_(result), engine_(engine), aspace_(aspace), arch_(arch)
 {
 }
   
-void PointResult::PrintEvaluationResultsHeader(ArchSpace* aspace, std::ostream& out)
+void PointResult::PrintEvaluationResultsHeader(std::ostream& out)
 {
-  out << aspace->GetExtraHeaders();
-  out << "Total Computes, Cycles, Area, utilization, pJ/Compute, Mapping";
+  out << aspace_->GetExtraHeaders();
+  out << "Total Computes, Cycles, Total Area, Chip Area, utilization, pJ/Compute, Mapping";
   
   model::Topology topology = engine_.GetTopology();
   for (std::size_t i = 0; i < topology.NumStorageLevels(); i++) {
@@ -56,15 +56,24 @@ void PointResult::PrintEvaluationResultsHeader(ArchSpace* aspace, std::ostream& 
 
 void PointResult::PrintEvaluationResult(std::ostream& out)
 {
+  model::Topology topology = engine_.GetTopology();
+  double chipArea;
+
+  if (aspace_->ChipName() == "") {
+    chipArea = engine_.Area();
+  } else {
+    chipArea = topology.SubtreeArea(aspace_->ChipName());
+  }
+
   out << arch_.header_;
   out << result_.stats.algorithmic_computes;
   out << ", " << result_.stats.cycles;
   out << ", " << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine_.Area();
+  out << ", " << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << chipArea;
   out << ", " << OUT_FLOAT_FORMAT << std::setprecision(4) << result_.stats.utilization;
   out << ", " << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << result_.stats.energy / result_.stats.algorithmic_computes;
   out << ", " << result_.mapping.PrintCompact();
 
-  model::Topology topology = engine_.GetTopology();
   for (std::size_t i = 0; i < topology.NumStorageLevels(); i++) {
       std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(i);
       out << ", " << buffer_level->Accesses();
@@ -120,11 +129,19 @@ void DesignSpaceExplorer::Run()
   ArchSpace* aspec_space;
   if (auto list = aspec_yaml["arch-space-files"])
   {
-    aspec_space = ArchSpace::InitializeFromFileList(list);
+    std::string chip_name = "";
+    if (auto chip_name_ = aspec_yaml["chip"]) {
+      chip_name = chip_name_.as<std::string>();
+    }
+    aspec_space = ArchSpace::InitializeFromFileList(list, chip_name);
   }
   else if (auto sweep = aspec_yaml["arch-space-sweep"])
   {
-    aspec_space = ArchSpace::InitializeFromFileSweep(sweep);
+    std::string chip_name = "";
+    if (auto chip_name_ = aspec_yaml["chip"]) {
+      chip_name = chip_name_.as<std::string>();
+    }
+    aspec_space = ArchSpace::InitializeFromFileSweep(sweep, chip_name);
   }
   else
   {
@@ -182,9 +199,9 @@ void DesignSpaceExplorer::Run()
 
       model::Engine engine = mapper.GetEngineBest();
 
-      PointResult result(config_name, mapper.GetGlobalBest(), engine, curr_arch);
+      PointResult result(config_name, mapper.GetGlobalBest(), engine, aspec_space, curr_arch);
       if (!printed_header) {
-        result.PrintEvaluationResultsHeader(aspec_space, result_txt_file);
+        result.PrintEvaluationResultsHeader(result_txt_file);
         printed_header = true;
       }
       result.PrintEvaluationResult(result_txt_file);
