@@ -688,7 +688,7 @@ void SweepArchSpace::AdvanceSweepNodes() {
   std::cout << std::endl;
   //increment (step through) the sweep space
   std::size_t i = 0;
-  while (i < space_.size())
+  while (i < NumVars())
   {
     ArchSweepNode& var = GetVar(i);
     var.val_curr_ *= var.val_step_size_;
