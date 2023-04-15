@@ -603,6 +603,7 @@ void MapperThread::Run()
       {
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
                   << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization
+                  << " | Cycles = " << std::setw(8) << stats.cycles
                   << " | pJ/Algorithmic-Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
                   << " | pJ/Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
@@ -612,6 +613,7 @@ void MapperThread::Run()
       {
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
                   << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization
+                  << " | Cycles = " << std::setw(8) << stats.cycles
                   << " | pJ/Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
                   << std::endl;
@@ -644,6 +646,7 @@ void MapperThread::Run()
         {
           log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
                     << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization
+                    << " | Cycles = " << std::setw(8) << stats.cycles
                     << " | pJ/Algorithmic-Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
                     << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
@@ -653,6 +656,7 @@ void MapperThread::Run()
         {
           log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
                     << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization
+                    << " | Cycles = " << std::setw(8) << stats.cycles
                     << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
                     << std::endl;
