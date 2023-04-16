@@ -203,6 +203,8 @@ uint64_t DeriveOperation::value(std::vector<ArchSweepNode> vars, std::vector<Arc
 
   if (op_ == "max") {
     return val1 > val2 ? val1 : val2;
+  } else if (op_ == "min") {
+    return val1 > val2 ? val2 : val1;
   } else if (op_ == "mul") {
     return val1 * val2;
   } else if (op_ == "div") {
